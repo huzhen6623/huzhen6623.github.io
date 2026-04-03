@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>战绩记录器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        accent: '#8b5cf6',
+                        neutral: '#6b7280',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                },
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .glass {
+                @apply bg-white/80 backdrop-blur-md border border-white/20;
+            }
+            .card {
+                @apply glass rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl;
+            }
+            .btn {
+                @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+            }
+            .btn-primary {
+                @apply btn bg-primary text-white hover:bg-primary/90 focus:ring-primary/50;
+            }
+            .btn-secondary {
+                @apply btn bg-secondary text-white hover:bg-secondary/90 focus:ring-secondary/50;
+            }
+            .btn-accent {
+                @apply btn bg-accent text-white hover:bg-accent/90 focus:ring-accent/50;
+            }
+            .btn-outline {
+                @apply btn border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-200;
+            }
+            .input {
+                @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary;
+            }
+            .badge {
+                @apply px-2 py-1 text-xs font-medium rounded-full;
+            }
+            .badge-success {
+                @apply badge bg-green-100 text-green-800;
+            }
+            .badge-danger {
+                @apply badge bg-red-100 text-red-800;
+            }
+            .badge-warning {
+                @apply badge bg-yellow-100 text-yellow-800;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- 头部 -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">战绩记录器</h1>
+            <p class="text-gray-600">记录你和朋友们的游戏战绩</p>
+        </header>
+
+        <!-- 主内容 -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：玩家管理 -->
+            <section class="lg:col-span-1">
+                <div class="card">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-users mr-2 text-primary"></i>
+                        玩家管理
+                    </h2>
+                    <div class="mb-4">
+                        <input type="text" id="playerName" placeholder="输入玩家姓名" class="input">
+                    </div>
+                    <button id="addPlayer" class="btn-primary w-full mb-4">
+                        <i class="fa fa-plus mr-1"></i> 添加玩家
+                    </button>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">玩家列表</h3>
+                        <ul id="playerList" class="space-y-2"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 中间：战绩记录 -->
+            <section class="lg:col-span-2">
+                <div class="card">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-trophy mr-2 text-primary"></i>
+                        战绩记录
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">游戏类型</label>
+                            <select id="gameType" class="input">
+                                <option value="mahjong">麻将</option>
+                                <option value="cards">扑克牌</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">游戏日期</label>
+                            <input type="date" id="gameDate" class="input">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">参与者及得分</label>
+                        <div id="participants" class="space-y-2"></div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                        <textarea id="gameNote" placeholder="添加备注信息" class="input h-20"></textarea>
+                    </div>
+                    <button id="addRecord" class="btn-primary w-full">
+                        <i class="fa fa-save mr-1"></i> 记录战绩
+                    </button>
+                </div>
+
+                <!-- 战绩列表 -->
+                <div class="card mt-8">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-history mr-2 text-primary"></i>
+                        历史战绩
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">游戏类型</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参与者及得分</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordList" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 底部统计 -->
+        <section class="mt-8">
+            <div class="card">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fa fa-bar-chart mr-2 text-primary"></i>
+                    统计分析
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="glass rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">总游戏次数</h3>
+                        <p id="totalGames" class="text-3xl font-bold text-primary">0</p>
+                    </div>
+                    <div class="glass rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">总参与人数</h3>
+                        <p id="totalPlayers" class="text-3xl font-bold text-secondary">0</p>
+                    </div>
+                    <div class="glass rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">最近游戏</h3>
+                        <p id="lastGame" class="text-lg font-medium text-accent">暂无</p>
+                    </div>
+                </div>
+                
+                <!-- 玩家战绩统计 -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">玩家战绩</h3>
+                    <div id="playerStats" class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">玩家</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总游戏次数</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总得分</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均得分</th>
+                                </tr>
+                            </thead>
+                            <tbody id="playerStatsBody" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 页脚 -->
+        <footer class="mt-8 text-center text-gray-600 text-sm">
+            <p>© 2026 战绩记录器 - 记录每一次精彩瞬间</p>
+        </footer>
+    </div>
+
+    <script>
+        // 数据存储
+        let players = JSON.parse(localStorage.getItem('players')) || [];
+        let records = JSON.parse(localStorage.getItem('records')) || [];
+
+        // 初始化
+        function init() {
+            renderPlayers();
+            renderRecords();
+            updateStats();
+            document.getElementById('gameDate').valueAsDate = new Date();
+        }
+
+        // 渲染玩家列表
+        function renderPlayers() {
+            const playerList = document.getElementById('playerList');
+            const participants = document.getElementById('participants');
+            
+            // 清空列表
+            playerList.innerHTML = '';
+            participants.innerHTML = '';
+
+            // 渲染玩家列表
+            players.forEach((player, index) => {
+                // 玩家列表项
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between glass p-2 rounded-md';
+                li.innerHTML = `
+                    <span class="font-medium">${player.name}</span>
+                    <button class="text-red-500 hover:text-red-700" onclick="removePlayer(${index})">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                `;
+                playerList.appendChild(li);
+
+                // 参与者复选框和得分输入
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2';
+                div.innerHTML = `
+                    <input type="checkbox" id="participant-${index}" value="${player.name}" class="mr-2">
+                    <label for="participant-${index}" class="flex-1">${player.name}</label>
+                    <input type="number" id="score-${index}" placeholder="得分" class="input w-24" disabled>
+                `;
+                participants.appendChild(div);
+                
+                // 添加复选框事件监听
+                document.getElementById(`participant-${index}`).addEventListener('change', function() {
+                    const scoreInput = document.getElementById(`score-${index}`);
+                    scoreInput.disabled = !this.checked;
+                    if (!this.checked) {
+                        scoreInput.value = '';
+                    }
+                });
+            });
+        }
+
+        // 渲染战绩记录
+        function renderRecords() {
+            const recordList = document.getElementById('recordList');
+            recordList.innerHTML = '';
+
+            records.forEach((record, index) => {
+                // 构建参与者及得分字符串
+                let participantsWithScores = '';
+                record.participants.forEach((participant, i) => {
+                    const score = record.scores ? record.scores[participant] || 0 : 0;
+                    const scoreClass = score > 0 ? 'text-green-600 font-medium' : score < 0 ? 'text-red-600 font-medium' : 'text-gray-600';
+                    participantsWithScores += `${participant} (<span class="${scoreClass}">${score}</span>)`;
+                    if (i < record.participants.length - 1) {
+                        participantsWithScores += ', ';
+                    }
+                });
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${record.date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${getGameTypeName(record.type)}</td>
+                    <td class="px-6 py-4">${participantsWithScores}</td>
+                    <td class="px-6 py-4">${record.note || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button class="text-red-500 hover:text-red-700 mr-2" onclick="removeRecord(${index})">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                recordList.appendChild(tr);
+            });
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            document.getElementById('totalGames').textContent = records.length;
+            document.getElementById('totalPlayers').textContent = players.length;
+            
+            if (records.length > 0) {
+                const lastRecord = records[records.length - 1];
+                document.getElementById('lastGame').textContent = `${lastRecord.date} - ${getGameTypeName(lastRecord.type)}`;
+            } else {
+                document.getElementById('lastGame').textContent = '暂无';
+            }
+            
+            // 更新玩家战绩统计
+            updatePlayerStats();
+        }
+        
+        // 更新玩家战绩统计
+        function updatePlayerStats() {
+            const playerStatsBody = document.getElementById('playerStatsBody');
+            playerStatsBody.innerHTML = '';
+            
+            // 计算每个玩家的统计数据
+            const playerStats = {};
+            
+            // 初始化玩家统计
+            players.forEach(player => {
+                playerStats[player.name] = {
+                    games: 0,
+                    totalScore: 0
+                };
+            });
+            
+            // 统计每个玩家的游戏次数和得分
+            records.forEach(record => {
+                record.participants.forEach(participant => {
+                    if (playerStats[participant]) {
+                        playerStats[participant].games++;
+                        if (record.scores) {
+                            playerStats[participant].totalScore += record.scores[participant] || 0;
+                        }
+                    }
+                });
+            });
+            
+            // 渲染玩家统计表格
+            Object.entries(playerStats).forEach(([playerName, stats]) => {
+                const avgScore = stats.games > 0 ? (stats.totalScore / stats.games).toFixed(2) : 0;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap font-medium">${playerName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${stats.games}</td>
+                    <td class="px-6 py-4 whitespace-nowrap ${stats.totalScore > 0 ? 'text-green-600 font-medium' : stats.totalScore < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${stats.totalScore}</td>
+                    <td class="px-6 py-4 whitespace-nowrap ${parseFloat(avgScore) > 0 ? 'text-green-600 font-medium' : parseFloat(avgScore) < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${avgScore}</td>
+                `;
+                playerStatsBody.appendChild(tr);
+            });
+        }
+
+        // 获取游戏类型名称
+        function getGameTypeName(type) {
+            const types = {
+                'mahjong': '麻将',
+                'cards': '扑克牌',
+                'other': '其他'
+            };
+            return types[type] || type;
+        }
+
+        // 添加玩家
+        function addPlayer() {
+            const playerName = document.getElementById('playerName').value.trim();
+            if (playerName) {
+                players.push({ name: playerName });
+                localStorage.setItem('players', JSON.stringify(players));
+                document.getElementById('playerName').value = '';
+                renderPlayers();
+                updateStats();
+            }
+        }
+
+        // 移除玩家
+        function removePlayer(index) {
+            players.splice(index, 1);
+            localStorage.setItem('players', JSON.stringify(players));
+            renderPlayers();
+            updateStats();
+        }
+
+        // 添加战绩记录
+        function addRecord() {
+            const gameType = document.getElementById('gameType').value;
+            const gameDate = document.getElementById('gameDate').value;
+            const gameNote = document.getElementById('gameNote').value.trim();
+            
+            // 获取选中的参与者及得分
+            const participants = [];
+            const scores = {};
+            players.forEach((player, index) => {
+                const checkbox = document.getElementById(`participant-${index}`);
+                if (checkbox && checkbox.checked) {
+                    const scoreInput = document.getElementById(`score-${index}`);
+                    const score = scoreInput.value ? parseInt(scoreInput.value) : 0;
+                    participants.push(player.name);
+                    scores[player.name] = score;
+                }
+            });
+
+            if (participants.length > 0) {
+                records.push({
+                    type: gameType,
+                    date: gameDate,
+                    participants: participants,
+                    scores: scores,
+                    note: gameNote
+                });
+                localStorage.setItem('records', JSON.stringify(records));
+                renderRecords();
+                updateStats();
+                
+                // 重置表单
+                document.getElementById('gameNote').value = '';
+                players.forEach((player, index) => {
+                    const checkbox = document.getElementById(`participant-${index}`);
+                    const scoreInput = document.getElementById(`score-${index}`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+                    if (scoreInput) {
+                        scoreInput.value = '';
+                        scoreInput.disabled = true;
+                    }
+                });
+            }
+        }
+
+        // 移除战绩记录
+        function removeRecord(index) {
+            records.splice(index, 1);
+            localStorage.setItem('records', JSON.stringify(records));
+            renderRecords();
+            updateStats();
+        }
+
+        // 事件监听
+        document.getElementById('addPlayer').addEventListener('click', addPlayer);
+        document.getElementById('addRecord').addEventListener('click', addRecord);
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
