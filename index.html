@@ -220,6 +220,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">玩家</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总游戏次数</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">胜利次数</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">胜利得分</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总得分</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均得分</th>
                                 </tr>
@@ -511,6 +512,7 @@
                 playerStats[player.name] = {
                     games: 0,
                     wins: 0,
+                    winScore: 0, // 胜利得分总和
                     totalScore: 0
                 };
             });
@@ -523,25 +525,26 @@
                         if (record.scores) {
                             const score = record.scores[participant] || 0;
                             playerStats[participant].totalScore += score;
-                            // 检查是否是最高分
-                            const maxScore = Math.max(...Object.values(record.scores));
-                            if (score === maxScore && score > 0) {
+                            // 只要得分是正数，就算胜利
+                            if (score > 0) {
                                 playerStats[participant].wins++;
+                                playerStats[participant].winScore += score;
                             }
                         }
                     }
                 });
             });
             
-            // 转换为数组并按总得分排序
+            // 转换为数组并按胜利得分总和排序
             const sortedPlayerStats = Object.entries(playerStats)
                 .map(([name, stats]) => ({
                     name,
                     ...stats,
                     winRate: stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : 0,
-                    avgScore: stats.games > 0 ? (stats.totalScore / stats.games).toFixed(2) : 0
+                    avgScore: stats.games > 0 ? (stats.totalScore / stats.games).toFixed(2) : 0,
+                    avgWinScore: stats.wins > 0 ? (stats.winScore / stats.wins).toFixed(2) : 0
                 }))
-                .sort((a, b) => b.totalScore - a.totalScore);
+                .sort((a, b) => b.winScore - a.winScore);
             
             // 渲染玩家统计表格
             sortedPlayerStats.forEach((player, index) => {
@@ -554,6 +557,7 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">${player.games}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${player.wins} (${player.winRate}%)</td>
+                    <td class="px-6 py-4 whitespace-nowrap ${player.winScore > 0 ? 'text-green-600 font-medium' : 'text-gray-600'}">${player.winScore}</td>
                     <td class="px-6 py-4 whitespace-nowrap ${player.totalScore > 0 ? 'text-green-600 font-medium' : player.totalScore < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${player.totalScore}</td>
                     <td class="px-6 py-4 whitespace-nowrap ${parseFloat(player.avgScore) > 0 ? 'text-green-600 font-medium' : parseFloat(player.avgScore) < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${player.avgScore}</td>
                 `;
