@@ -94,6 +94,21 @@
                         <h3 class="text-lg font-medium text-gray-700 mb-2">玩家列表</h3>
                         <ul id="playerList" class="space-y-2"></ul>
                     </div>
+                    <div class="mt-6 border-t border-gray-200 pt-4">
+                        <h3 class="text-lg font-medium text-gray-700 mb-3">数据管理</h3>
+                        <div class="space-y-2">
+                            <button id="exportData" class="btn-secondary w-full">
+                                <i class="fa fa-download mr-1"></i> 导出数据
+                            </button>
+                            <input type="file" id="importData" accept=".json" class="hidden">
+                            <button id="importDataBtn" class="btn-outline w-full">
+                                <i class="fa fa-upload mr-1"></i> 导入数据
+                            </button>
+                            <button id="clearAllData" class="btn-outline w-full text-red-500 border-red-300 hover:bg-red-50">
+                                <i class="fa fa-trash mr-1"></i> 清空所有数据
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -137,6 +152,24 @@
                         <i class="fa fa-history mr-2 text-primary"></i>
                         历史战绩
                     </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <input type="text" id="searchInput" placeholder="搜索玩家或备注" class="input">
+                        </div>
+                        <div>
+                            <select id="filterGameType" class="input">
+                                <option value="">所有游戏类型</option>
+                                <option value="mahjong">麻将</option>
+                                <option value="cards">扑克牌</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="filterPlayer" class="input">
+                                <option value="">所有玩家</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -186,6 +219,7 @@
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">玩家</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总游戏次数</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">胜利次数</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总得分</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均得分</th>
                                 </tr>
@@ -207,13 +241,28 @@
         // 数据存储
         let players = JSON.parse(localStorage.getItem('players')) || [];
         let records = JSON.parse(localStorage.getItem('records')) || [];
+        let editingRecordIndex = -1;
 
         // 初始化
         function init() {
             renderPlayers();
             renderRecords();
             updateStats();
+            updatePlayerFilter();
             document.getElementById('gameDate').valueAsDate = new Date();
+            
+            // 事件监听
+            document.getElementById('addPlayer').addEventListener('click', addPlayer);
+            document.getElementById('addRecord').addEventListener('click', addOrEditRecord);
+            document.getElementById('exportData').addEventListener('click', exportData);
+            document.getElementById('importDataBtn').addEventListener('click', () => {
+                document.getElementById('importData').click();
+            });
+            document.getElementById('importData').addEventListener('change', importData);
+            document.getElementById('clearAllData').addEventListener('click', clearAllData);
+            document.getElementById('searchInput').addEventListener('input', renderRecords);
+            document.getElementById('filterGameType').addEventListener('change', renderRecords);
+            document.getElementById('filterPlayer').addEventListener('change', renderRecords);
         }
 
         // 渲染玩家列表
@@ -257,6 +306,20 @@
                     }
                 });
             });
+            
+            updatePlayerFilter();
+        }
+
+        // 更新玩家筛选下拉菜单
+        function updatePlayerFilter() {
+            const filterPlayer = document.getElementById('filterPlayer');
+            filterPlayer.innerHTML = '<option value="">所有玩家</option>';
+            players.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.name;
+                option.textContent = player.name;
+                filterPlayer.appendChild(option);
+            });
         }
 
         // 渲染战绩记录
@@ -264,7 +327,31 @@
             const recordList = document.getElementById('recordList');
             recordList.innerHTML = '';
 
-            records.forEach((record, index) => {
+            // 获取筛选条件
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filterGameType = document.getElementById('filterGameType').value;
+            const filterPlayerName = document.getElementById('filterPlayer').value;
+
+            // 筛选记录
+            const filteredRecords = records.filter((record, index) => {
+                // 搜索筛选
+                const matchesSearch = !searchTerm || 
+                    record.participants.some(p => p.toLowerCase().includes(searchTerm)) ||
+                    (record.note && record.note.toLowerCase().includes(searchTerm));
+                
+                // 游戏类型筛选
+                const matchesGameType = !filterGameType || record.type === filterGameType;
+                
+                // 玩家筛选
+                const matchesPlayer = !filterPlayerName || record.participants.includes(filterPlayerName);
+                
+                return matchesSearch && matchesGameType && matchesPlayer;
+            });
+
+            filteredRecords.forEach((record, displayIndex) => {
+                // 找到原始索引
+                const originalIndex = records.indexOf(record);
+                
                 // 构建参与者及得分字符串
                 let participantsWithScores = '';
                 record.participants.forEach((participant, i) => {
@@ -284,12 +371,114 @@
                     <td class="px-6 py-4">${participantsWithScores}</td>
                     <td class="px-6 py-4">${record.note || '-'}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <button class="text-red-500 hover:text-red-700 mr-2" onclick="removeRecord(${index})">
+                        <button class="text-blue-500 hover:text-blue-700 mr-2" onclick="editRecord(${originalIndex})">
+                            <i class="fa fa-edit"></i>
+                        </button>
+                        <button class="text-red-500 hover:text-red-700" onclick="removeRecord(${originalIndex})">
                             <i class="fa fa-trash"></i>
                         </button>
                     </td>
                 `;
                 recordList.appendChild(tr);
+            });
+        }
+
+        // 编辑战绩记录
+        function editRecord(index) {
+            editingRecordIndex = index;
+            const record = records[index];
+            
+            // 填充表单
+            document.getElementById('gameType').value = record.type;
+            document.getElementById('gameDate').value = record.date;
+            document.getElementById('gameNote').value = record.note || '';
+            
+            // 填充参与者和得分
+            players.forEach((player, i) => {
+                const checkbox = document.getElementById(`participant-${i}`);
+                const scoreInput = document.getElementById(`score-${i}`);
+                if (checkbox && scoreInput) {
+                    const isParticipant = record.participants.includes(player.name);
+                    checkbox.checked = isParticipant;
+                    scoreInput.disabled = !isParticipant;
+                    if (isParticipant && record.scores) {
+                        scoreInput.value = record.scores[player.name] || 0;
+                    } else {
+                        scoreInput.value = '';
+                    }
+                }
+            });
+            
+            // 修改按钮文字
+            document.getElementById('addRecord').innerHTML = '<i class="fa fa-save mr-1"></i> 更新战绩';
+            
+            // 滚动到表单
+            document.querySelector('.lg\\:col-span-2').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 添加或编辑战绩记录
+        function addOrEditRecord() {
+            if (editingRecordIndex >= 0) {
+                // 更新现有记录
+                updateRecord();
+            } else {
+                // 添加新记录
+                addRecord();
+            }
+        }
+
+        // 更新战绩记录
+        function updateRecord() {
+            const gameType = document.getElementById('gameType').value;
+            const gameDate = document.getElementById('gameDate').value;
+            const gameNote = document.getElementById('gameNote').value.trim();
+            
+            // 获取选中的参与者及得分
+            const participants = [];
+            const scores = {};
+            players.forEach((player, index) => {
+                const checkbox = document.getElementById(`participant-${index}`);
+                if (checkbox && checkbox.checked) {
+                    const scoreInput = document.getElementById(`score-${index}`);
+                    const score = scoreInput.value ? parseInt(scoreInput.value) : 0;
+                    participants.push(player.name);
+                    scores[player.name] = score;
+                }
+            });
+
+            if (participants.length > 0) {
+                records[editingRecordIndex] = {
+                    type: gameType,
+                    date: gameDate,
+                    participants: participants,
+                    scores: scores,
+                    note: gameNote
+                };
+                localStorage.setItem('records', JSON.stringify(records));
+                renderRecords();
+                updateStats();
+                resetForm();
+            }
+        }
+
+        // 重置表单
+        function resetForm() {
+            editingRecordIndex = -1;
+            document.getElementById('gameNote').value = '';
+            document.getElementById('gameDate').valueAsDate = new Date();
+            document.getElementById('gameType').value = 'mahjong';
+            document.getElementById('addRecord').innerHTML = '<i class="fa fa-save mr-1"></i> 记录战绩';
+            
+            players.forEach((player, index) => {
+                const checkbox = document.getElementById(`participant-${index}`);
+                const scoreInput = document.getElementById(`score-${index}`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+                if (scoreInput) {
+                    scoreInput.value = '';
+                    scoreInput.disabled = true;
+                }
             });
         }
 
@@ -321,32 +510,52 @@
             players.forEach(player => {
                 playerStats[player.name] = {
                     games: 0,
+                    wins: 0,
                     totalScore: 0
                 };
             });
             
-            // 统计每个玩家的游戏次数和得分
+            // 统计每个玩家的游戏次数、胜利次数和得分
             records.forEach(record => {
                 record.participants.forEach(participant => {
                     if (playerStats[participant]) {
                         playerStats[participant].games++;
                         if (record.scores) {
-                            playerStats[participant].totalScore += record.scores[participant] || 0;
+                            const score = record.scores[participant] || 0;
+                            playerStats[participant].totalScore += score;
+                            // 检查是否是最高分
+                            const maxScore = Math.max(...Object.values(record.scores));
+                            if (score === maxScore && score > 0) {
+                                playerStats[participant].wins++;
+                            }
                         }
                     }
                 });
             });
             
+            // 转换为数组并按总得分排序
+            const sortedPlayerStats = Object.entries(playerStats)
+                .map(([name, stats]) => ({
+                    name,
+                    ...stats,
+                    winRate: stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : 0,
+                    avgScore: stats.games > 0 ? (stats.totalScore / stats.games).toFixed(2) : 0
+                }))
+                .sort((a, b) => b.totalScore - a.totalScore);
+            
             // 渲染玩家统计表格
-            Object.entries(playerStats).forEach(([playerName, stats]) => {
-                const avgScore = stats.games > 0 ? (stats.totalScore / stats.games).toFixed(2) : 0;
+            sortedPlayerStats.forEach((player, index) => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-50';
                 tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap font-medium">${playerName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${stats.games}</td>
-                    <td class="px-6 py-4 whitespace-nowrap ${stats.totalScore > 0 ? 'text-green-600 font-medium' : stats.totalScore < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${stats.totalScore}</td>
-                    <td class="px-6 py-4 whitespace-nowrap ${parseFloat(avgScore) > 0 ? 'text-green-600 font-medium' : parseFloat(avgScore) < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${avgScore}</td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium">
+                        ${index < 3 ? `<span class="inline-block w-6 h-6 rounded-full text-white text-center text-xs mr-2 ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-yellow-700'}">${index + 1}</span>` : ''}
+                        ${player.name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">${player.games}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${player.wins} (${player.winRate}%)</td>
+                    <td class="px-6 py-4 whitespace-nowrap ${player.totalScore > 0 ? 'text-green-600 font-medium' : player.totalScore < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${player.totalScore}</td>
+                    <td class="px-6 py-4 whitespace-nowrap ${parseFloat(player.avgScore) > 0 ? 'text-green-600 font-medium' : parseFloat(player.avgScore) < 0 ? 'text-red-600 font-medium' : 'text-gray-600'}">${player.avgScore}</td>
                 `;
                 playerStatsBody.appendChild(tr);
             });
@@ -412,34 +621,84 @@
                 localStorage.setItem('records', JSON.stringify(records));
                 renderRecords();
                 updateStats();
-                
-                // 重置表单
-                document.getElementById('gameNote').value = '';
-                players.forEach((player, index) => {
-                    const checkbox = document.getElementById(`participant-${index}`);
-                    const scoreInput = document.getElementById(`score-${index}`);
-                    if (checkbox) {
-                        checkbox.checked = false;
-                    }
-                    if (scoreInput) {
-                        scoreInput.value = '';
-                        scoreInput.disabled = true;
-                    }
-                });
+                resetForm();
             }
         }
 
         // 移除战绩记录
         function removeRecord(index) {
-            records.splice(index, 1);
-            localStorage.setItem('records', JSON.stringify(records));
-            renderRecords();
-            updateStats();
+            if (confirm('确定要删除这条战绩记录吗？')) {
+                records.splice(index, 1);
+                localStorage.setItem('records', JSON.stringify(records));
+                renderRecords();
+                updateStats();
+            }
         }
 
-        // 事件监听
-        document.getElementById('addPlayer').addEventListener('click', addPlayer);
-        document.getElementById('addRecord').addEventListener('click', addRecord);
+        // 导出数据
+        function exportData() {
+            const data = {
+                players: players,
+                records: records,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            const exportFileDefaultName = `战绩记录器数据_${new Date().toLocaleDateString('zh-CN')}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        // 导入数据
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.players && data.records) {
+                        if (confirm('确定要导入数据吗？这将覆盖当前所有数据。')) {
+                            players = data.players;
+                            records = data.records;
+                            localStorage.setItem('players', JSON.stringify(players));
+                            localStorage.setItem('records', JSON.stringify(records));
+                            renderPlayers();
+                            renderRecords();
+                            updateStats();
+                            alert('数据导入成功！');
+                        }
+                    } else {
+                        alert('无效的数据格式！');
+                    }
+                } catch (error) {
+                    alert('导入失败：无效的JSON文件！');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // 清空所有数据
+        function clearAllData() {
+            if (confirm('确定要清空所有数据吗？这将删除所有玩家和战绩记录，且无法恢复！')) {
+                if (confirm('再次确认：清空所有数据？')) {
+                    players = [];
+                    records = [];
+                    localStorage.removeItem('players');
+                    localStorage.removeItem('records');
+                    renderPlayers();
+                    renderRecords();
+                    updateStats();
+                    alert('所有数据已清空！');
+                }
+            }
+        }
 
         // 初始化
         init();
